@@ -5,11 +5,12 @@ library(dplyr)
 library(reshape2)
 library(PerformanceAnalytics)
 library(rtweet)
-library(sm)
+# library(sm)
 library(car)
+library(rstan)
 
 
-setwd("~/git/AIT602_Spring2021//week6_stat/")
+setwd("~/git/AIT602/week6_stat/")
 
 #############
 # 1. Load the data. 
@@ -25,9 +26,12 @@ summary(data$source)
 
 #############
 # 3. Numbers of favorites, retweets, and text length distribution
-hist(data$favorite_count)
-hist(data$retweet_count)
-hist(data$display_text_width)
+par(mfrow=c(1,1))
+hist(data$favorite_count, breaks=100)
+hist(log(data$favorite_count+1), breaks=100)
+hist(data$retweet_count, breaks=100)
+hist(log(data$retweet_count+1), breaks=100)
+hist(data$display_text_width, breaks=100)
 
 # denstiy graph
 d <- density(data$display_text_width)
@@ -80,7 +84,7 @@ par(mfrow=c(2,2)) # init 4 charts in 1 panel
 plot(fav)
 plot(ret)
 
-table(corona_tweets$is_quote)
+table(data$is_quote)
 just_test <- lm(is_quote ~ display_text_width + favorite_count + retweet_count, data = data)
 summary(just_test)
 car::vif(just_test) # it's safe from multicolinearity issue
@@ -106,5 +110,39 @@ plot(ret_lm)
 lgit <- glm(is_quote ~ display_text_width + favorite_count + retweet_count, 
             data = data, family = "binomial")
 summary(lgit)
+
+
+########
+# 7. Bayesian Regression
+library(rstanarm)
+
+data$random <- sample(1:100, nrow(data), replace = T)
+model <- stan_lm(random ~ display_text_width + favorite_count + retweet_count, 
+            data = data, prior = R2(0.5), seed = 156)
+summary(model)
+stan_plot(model)
+
+#another...
+ret <- stan_lm(display_text_width ~ random + favorite_count + retweet_count, data=data, 
+                              prior = R2(0.5), seed = 200)
+summary(ret)
+stan_plot(ret)
+
+# ANOVA
+model <- stan_aov(is_quote ~ display_text_width + favorite_count + retweet_count, 
+                 data = data, prior = R2(0.5), seed = 100)
+summary(model)
+stan_plot(model)
+
+# Bayesian Logistic Regression
+model <- stan_glm(is_quote ~ display_text_width + favorite_count + retweet_count, 
+                  data = data, 
+                  QR=T,
+                  prior_intercept = normal(0, 10),
+                  family = binomial(link = "logit"))
+summary(model)
+stan_plot(model)
+plot(model, plotfun = "areas", prob = 0.9,
+     pars = c("(Intercept)", "favorite_count"))
 
 

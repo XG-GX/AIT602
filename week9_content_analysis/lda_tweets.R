@@ -7,8 +7,9 @@ library(topicmodels)
 library(tidytext)
 library(text2vec)
 library(SnowballC)
+library(LDAvis)
 
-setwd("~/git/AIT602_Spring2021/week9_content_analysis/data")
+setwd("~/git/AIT602/week9_content_analysis/data")
 
 get_tokens <- function (df){
   data("stop_words")
@@ -34,9 +35,16 @@ get_tokens <- function (df){
   tidy_text
 }
 
-# Loading the Twitter data
+# 1: Loading the Twitter data
 tweets <- read_delim("corona_tweets_Feb2020.csv", delim = ",",col_names = TRUE)
 tweets <- get_tokens(tweets)
+
+# 2: interview data
+quotes <- read_delim("AIT602_interview_coding_week8.csv", delim = ",",col_names = TRUE)
+quotes$status_id <- 1:nrow(quotes)
+quotes <- quotes[,c("status_id", "Quote")]
+colnames(quotes) <- c("status_id", "text")
+tweets <- get_tokens(quotes)
 
 # Tokenizing and text pre-processing
 it = itoken(tweets$word, progressbar = TRUE)
@@ -50,9 +58,9 @@ castdtm <- tweets %>% count(status_id, word) %>% cast_dtm(status_id, word, n)
 result <- FindTopicsNumber(
   castdtm,
   topics = round(seq(1, 15, 1)),
-  metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+  metrics = c("Arun2010", "Deveaud2014"),
   method = "Gibbs",
-  control = list(seed = 123),
+  control = list(seed = 12),
   mc.cores = 10L,
   verbose = TRUE
 )
@@ -70,7 +78,7 @@ doc_topic_distr = lda_model$fit_transform(x = dtm, n_iter = 1000,
 lda_model$plot()
 
 # LDA
-topic_model <- LDA(castdtm, k=4, control = list(seed = 123)) 
+topic_model <- LDA(castdtm, k=k, control = list(seed = 123)) 
 topics      <- tidy(topic_model, matrix = "beta")
 docs        <- tidy(topic_model, matrix = "gamma")
 write.table(topics, "tweet_topics.csv", row.names = F, sep=",")
